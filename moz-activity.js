@@ -30,13 +30,17 @@ function openUrl (url) {
 function pickFile (init) {
 	return new Promise(function (resolve, reject) {
 		var input = document.createElement('input'), body = document.getElementsByTagName('body')[0];
+		function onBodyFocus () {
+			body.removeEventListener('focus', onBodyFocus, true);
+			body.removeChild(input);
+			reject('No file selected');
+		}
 		input.type = 'file';
 		init(input);
 		input.style.display = 'none';
 		body.appendChild(input);
 		input.addEventListener('change', function () {
 			var file = input.files[0];
-			body.removeChild(input);
 			if (file) {
 				resolve({
 					blob: file,
@@ -45,7 +49,10 @@ function pickFile (init) {
 			} else {
 				reject('No file selected');
 			}
+			body.removeEventListener('focus', onBodyFocus, true);
+			body.removeChild(input);
 		}, false);
+		body.addEventListener('focus', onBodyFocus, true);
 		input.click();
 	});
 }
@@ -133,15 +140,15 @@ activity.record = function () {
 };
 
 activity.share = function (data) {
-	var url;
+	var shareData;
 	if (data.url) {
-		url = data.url;
+		shareData = {url: data.url};
 	} else if (data.blob) {
-		url = URL.createObjectURL(data.blob);
+		shareData = {files: [data.blob]};
 	} else {
 		return Promise.reject('Missing url/blob');
 	}
-	return navigator.share ? navigator.share({url: url}) : Promise.reject('Unsupported activity');
+	return navigator.share ? navigator.share(shareData) : Promise.reject('Unsupported activity');
 };
 
 activity.view = function (data) {
