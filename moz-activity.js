@@ -127,7 +127,7 @@ activity.open = function (data) {
 activity.pick = function (data) {
 	return pickFile(function (input) {
 		if (data.type) {
-			input.accept = data.type.join(',');
+			input.accept = Array.isArray(data.type) ? data.type.join(',') : data.type;
 		}
 	});
 };
@@ -143,20 +143,28 @@ activity.share = function (data) {
 	var shareData;
 	if (data.url) {
 		shareData = {url: data.url};
-	} else if (data.blob) {
-		shareData = {files: [data.blob]};
+	} else if (data.blobs) {
+		shareData = {files: data.blobs};
 	} else {
-		return Promise.reject('Missing url/blob');
+		return Promise.reject('Missing url/blobs');
 	}
 	return navigator.share ? navigator.share(shareData) : Promise.reject('Unsupported activity');
 };
 
-activity.view = function (data) {
-	return data.url ? openUrl(data.url) : Promise.reject('Missing url');
-};
+activity.view = activity.open;
 
 function MozActivity (options) {
 	var promise;
+
+	function makeError (error) {
+		if (!(error instanceof Error)) {
+			error = new Error(error);
+		}
+		if (error.message === 'Unsupported activity') {
+			error.name = 'NO_PROVIDER';
+		}
+		return error;
+	}
 
 	function triggerEvent (target, type) {
 		var e = new Event(type), passOn;
@@ -176,7 +184,7 @@ function MozActivity (options) {
 		this.result = result;
 		triggerEvent(this, 'success');
 	}.bind(this), function (error) {
-		this.error = error instanceof Error ? error : new Error(error);
+		this.error = makeError(error);
 		triggerEvent(this, 'error');
 	}.bind(this));
 }
